@@ -1,0 +1,95 @@
+{
+  "version": "1.0",
+  "rules": [
+    {
+      "id": "SSH_BRUTE_FORCE",
+      "name": "SSH Brute Force Attack",
+      "description": "More than 5 failed SSH login attempts from the same IP within 60 seconds",
+      "event_type": "AUTH_FAILURE",
+      "field": "dest_port",
+      "value": 22,
+      "threshold": 5,
+      "window_seconds": 60,
+      "severity": "critical",
+      "enabled": true,
+      "action": ["alert", "block_ip", "slack"]
+    },
+    {
+      "id": "SQL_INJECTION",
+      "name": "SQL Injection Attempt",
+      "description": "SQLi pattern detected in HTTP request parameters",
+      "event_type": "SQL_INJECTION",
+      "threshold": 1,
+      "window_seconds": 60,
+      "severity": "high",
+      "enabled": true,
+      "action": ["alert", "slack"]
+    },
+    {
+      "id": "PORT_SCAN",
+      "name": "Port Scan Detected",
+      "description": "More than 20 connection attempts to different ports from the same IP",
+      "event_type": "PORT_SCAN",
+      "threshold": 20,
+      "window_seconds": 30,
+      "severity": "high",
+      "enabled": true,
+      "action": ["alert"]
+    },
+    {
+      "id": "XSS_ATTEMPT",
+      "name": "Cross-Site Scripting Attempt",
+      "description": "XSS payload detected in HTTP request",
+      "event_type": "XSS_ATTEMPT",
+      "threshold": 3,
+      "window_seconds": 60,
+      "severity": "medium",
+      "enabled": true,
+      "action": ["alert"]
+    },
+    {
+      "id": "DIR_TRAVERSAL",
+      "name": "Directory Traversal",
+      "description": "Path traversal attack pattern detected",
+      "event_type": "DIR_TRAVERSAL",
+      "threshold": 3,
+      "window_seconds": 60,
+      "severity": "medium",
+      "enabled": true,
+      "action": ["alert"]
+    },
+    {
+      "id": "RCE_ATTEMPT",
+      "name": "Remote Code Execution Attempt",
+      "description": "Potential RCE payload detected in request",
+      "event_type": "RCE_ATTEMPT",
+      "threshold": 1,
+      "window_seconds": 60,
+      "severity": "critical",
+      "enabled": true,
+      "action": ["alert", "slack", "block_ip"]
+    },
+    {
+      "id": "SUSPICIOUS_UA",
+      "name": "Malicious User-Agent",
+      "description": "Known attack tool user-agent detected (sqlmap, nikto, nmap)",
+      "event_type": "SUSPICIOUS_UA",
+      "threshold": 1,
+      "window_seconds": 60,
+      "severity": "medium",
+      "enabled": true,
+      "action": ["alert"]
+    },
+    {
+      "id": "AUTH_SPRAY",
+      "name": "Password Spray Attack",
+      "description": "Multiple authentication failures across different usernames",
+      "event_type": "AUTH_FAILURE",
+      "threshold": 15,
+      "window_seconds": 300,
+      "severity": "high",
+      "enabled": true,
+      "action": ["alert", "slack"]
+    }
+  ]
+}

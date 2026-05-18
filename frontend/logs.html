@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>SIEM OPS — Logs</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .term-bar{
+      background:#0a0c12;border:1px solid var(--border);border-radius:var(--r);
+      padding:8px 14px;font-family:var(--font-mono);font-size:11px;
+      color:var(--text-2);margin-bottom:14px;
+    }
+    .term-bar .prompt{color:var(--green)}
+    .term-bar .info{color:var(--cyan);margin-left:8px}
+    .filter-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+    .fpill{
+      padding:5px 16px;border-radius:20px;border:1px solid var(--border);
+      background:var(--bg-card);color:var(--text-2);font-family:var(--font-mono);
+      font-size:11px;cursor:pointer;transition:all 0.15s;
+    }
+    .fpill:hover,.fpill.on{border-color:var(--cyan-dim);color:var(--cyan);background:var(--cyan-glow)}
+    .fpill.critical.on{border-color:var(--red);color:var(--red);background:var(--red-glow)}
+    .fpill.high.on{border-color:var(--orange);color:var(--orange);background:rgba(255,140,0,0.1)}
+    .fpill.medium.on{border-color:var(--yellow);color:var(--yellow);background:rgba(255,215,0,0.08)}
+    .tbl-wrap{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+    .tbl-toolbar{
+      display:flex;align-items:center;gap:10px;padding:11px 16px;
+      border-bottom:1px solid var(--border);background:var(--bg-panel);
+    }
+    .row-count{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-2)}
+    table{width:100%;border-collapse:collapse}
+    thead th{
+      text-align:left;padding:9px 14px;font-size:9px;font-family:var(--font-mono);
+      color:var(--text-3);letter-spacing:1.5px;text-transform:uppercase;
+      border-bottom:1px solid var(--border);background:#0a0c12;cursor:pointer;
+    }
+    thead th:hover{color:var(--cyan)}
+    tbody tr{cursor:pointer}
+    tbody tr:hover td{background:var(--bg-hover)}
+    tbody td{
+      padding:7px 14px;border-bottom:1px solid var(--border);
+      font-family:var(--font-mono);font-size:11.5px;color:var(--text-1);
+      vertical-align:middle;
+    }
+    tbody tr:last-child td{border-bottom:none}
+    .hl-ip{color:#79dcaa} .hl-port{color:#ff9d3d} .hl-ts{color:#7a7aff}
+    .hl-sqli{color:var(--red);font-weight:600} .hl-xss{color:var(--orange)}
+    .detail-row td{padding:0;background:#0a0c12 !important}
+    .detail-content{
+      padding:10px 20px;font-family:var(--font-mono);font-size:11px;
+      color:var(--text-2);border-left:3px solid var(--cyan-dim);
+      white-space:pre-wrap;word-break:break-all;
+    }
+    .search-wrap{
+      display:flex;align-items:center;gap:8px;flex:1;
+      background:var(--bg-card);border:1px solid var(--border);
+      border-radius:var(--r);padding:0 12px;
+    }
+    .search-wrap:focus-within{border-color:var(--cyan-dim)}
+    .search-wrap input{
+      flex:1;background:transparent;border:none;outline:none;
+      color:var(--text-1);font-family:var(--font-mono);font-size:12px;padding:8px 0;
+    }
+    .search-wrap input::placeholder{color:var(--text-3)}
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="header">
+    <a href="index.html" class="header-brand">SIEM<span>//</span>OPS</a>
+    <div class="header-pill"><span class="lbl">Page</span><span class="val" style="color:var(--green)">Logs</span></div>
+    <div class="header-sep"></div>
+    <button class="btn btn-ghost btn-sm" onclick="exportCSV()">⬇ Export CSV</button>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section">Navigation</div>
+    <a href="index.html"    class="nav-item"><span class="nav-icon">▦</span>Dashboard</a>
+    <a href="logs.html"     class="nav-item active"><span class="nav-icon">≡</span>Logs</a>
+    <a href="alerts.html"   class="nav-item"><span class="nav-icon">◎</span>Alerts</a>
+    <a href="rules.html"    class="nav-item"><span class="nav-icon">⊛</span>Rules</a>
+    <a href="map.html"      class="nav-item"><span class="nav-icon">◈</span>Attack Map</a>
+    <a href="settings.html" class="nav-item"><span class="nav-icon">⚙</span>Settings</a>
+    <div class="sidebar-footer"><strong>SIEM Platform v1.0</strong><br>Real-time Threat Detection</div>
+  </nav>
+  <main class="main-content">
+    <div class="page-hdr">
+      <div>
+        <div class="page-title">Raw <span>Logs</span></div>
+        <div class="page-sub">Click any row to expand raw log. Auto-refresh: 5s</div>
+      </div>
+    </div>
+    <div class="term-bar">
+      <span class="prompt">siem@ops:~$</span> tail -f /var/log/siem/*.log | grep -v INFO
+      <span class="info" id="log-count-label">[loading...]</span>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="search-wrap" style="max-width:500px">
+        <span style="color:var(--text-3)">🔍</span>
+        <input type="text" id="search-input" placeholder="Search IPs, events, payloads..."
+               oninput="debounceSearch(this.value)">
+      </div>
+      <select id="limit-select" class="thresh-input" style="width:80px" onchange="loadLogs()">
+        <option value="50">50</option>
+        <option value="100" selected>100</option>
+        <option value="250">250</option>
+        <option value="500">500</option>
+      </select>
+    </div>
+    <div class="filter-row">
+      <button class="fpill on"      onclick="setSev(this,'')"        >ALL</button>
+      <button class="fpill critical" onclick="setSev(this,'critical')">CRITICAL</button>
+      <button class="fpill high"    onclick="setSev(this,'high')"    >HIGH</button>
+      <button class="fpill medium"  onclick="setSev(this,'medium')"  >MEDIUM</button>
+      <button class="fpill"         onclick="setSev(this,'low')"     >LOW</button>
+      <button class="fpill"         onclick="setSev(this,'info')"    >INFO</button>
+    </div>
+    <div class="tbl-wrap">
+      <div class="tbl-toolbar">
+        <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-2)">● LIVE</div>
+        <div class="row-count" id="row-count">0 events</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadLogs()">↻</button>
+      </div>
+      <div style="overflow-x:auto;max-height:calc(100vh - 360px);overflow-y:auto">
+        <table>
+          <thead>
+            <tr>
+              <th onclick="sortBy('timestamp')">Timestamp</th>
+              <th onclick="sortBy('severity')">Severity</th>
+              <th>Event Type</th>
+              <th onclick="sortBy('source_ip')">Source IP</th>
+              <th>Port</th>
+              <th>Protocol</th>
+              <th>Message</th>
+            </tr>
+          </thead>
+          <tbody id="log-table-body">
+            <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-2)">
+              <div class="spinner" style="margin:0 auto 10px"></div>Loading logs...
+            </td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="toast-container"></div>
+<script src="dashboard.js"></script>
+<script>
+  let allLogs=[],curSev='',curQ='',sortField='timestamp',sortDir=-1,expandedRow=null,searchTimer=null;
+  async function loadLogs(){
+    const limit=document.getElementById('limit-select').value;
+    let url=`/api/logs?limit=${limit}`;
+    if(curQ)  url+=`&q=${encodeURIComponent(curQ)}`;
+    if(curSev)url+=`&severity=${curSev}`;
+    try{
+      const d=await fetch(url).then(r=>r.json());
+      allLogs=d.logs||[];
+      renderTable(allLogs);
+      document.getElementById('log-count-label').textContent=`[${allLogs.length} events loaded]`;
+      document.getElementById('row-count').textContent=`${allLogs.length} events`;
+    }catch(e){console.warn(e)}
+  }
+  function renderTable(logs){
+    const tb=document.getElementById('log-table-body');
+    if(!logs.length){tb.innerHTML='<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-2)">No logs match filter</td></tr>';return}
+    logs.sort((a,b)=>{let va=a[sortField]||'',vb=b[sortField]||'';return sortDir*(va<vb?-1:va>vb?1:0)});
+    tb.innerHTML=logs.map((log,i)=>{
+      const sev=log.severity||'info';
+      const ts=new Date(log.timestamp);
+      const date=ts.toLocaleDateString('en-GB',{month:'2-digit',day:'2-digit'});
+      const time=ts.toLocaleTimeString();
+      const msg=hlSyntax(log.message||log.event_type||'');
+      return `<tr onclick="toggleRow(${i})" data-idx="${i}">
+        <td><span class="hl-ts">${date}</span> ${time}</td>
+        <td><span class="badge badge-${sev}">${sev}</span></td>
+        <td style="color:var(--text-2)">${log.event_type||'—'}</td>
+        <td><span class="hl-ip">${log.source_ip||'—'}</span></td>
+        <td><span class="hl-port">${log.dest_port||'—'}</span></td>
+        <td style="color:var(--text-2)">${log.protocol||'—'}</td>
+        <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${msg}</td>
+      </tr>
+      <tr id="det-${i}" style="display:none" class="detail-row">
+        <td colspan="7"><div class="detail-content">${esc(log.raw||JSON.stringify(log,null,2))}</div></td>
+      </tr>`;
+    }).join('');
+  }
+  function hlSyntax(msg){
+    return esc(msg)
+      .replace(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/g,'<span class="hl-ip">$1</span>')
+      .replace(/(port\s+\d+)/gi,'<span class="hl-port">$1</span>')
+      .replace(/(SELECT|UNION|DROP|OR 1=1)/gi,'<span class="hl-sqli">$1</span>')
+      .replace(/(<script|onerror|alert\()/gi,'<span class="hl-xss">$1</span>');
+  }
+  function toggleRow(i){
+    const row=document.getElementById(`det-${i}`);if(!row)return;
+    const wasOpen=row.style.display!=='none';
+    if(expandedRow!==null){const p=document.getElementById(`det-${expandedRow}`);if(p)p.style.display='none'}
+    if(!wasOpen){row.style.display='';expandedRow=i}else expandedRow=null;
+  }
+  function setSev(btn,sev){
+    document.querySelectorAll('.fpill').forEach(b=>b.classList.remove('on'));
+    btn.classList.add('on');curSev=sev;loadLogs();
+  }
+  function debounceSearch(v){clearTimeout(searchTimer);curQ=v;searchTimer=setTimeout(loadLogs,400)}
+  function sortBy(f){if(sortField===f)sortDir*=-1;else{sortField=f;sortDir=-1}renderTable(allLogs)}
+  function exportCSV(){
+    if(!allLogs.length)return;
+    const h='timestamp,severity,event_type,source_ip,dest_port,protocol,message\n';
+    const r=allLogs.map(l=>[l.timestamp,l.severity,l.event_type,l.source_ip,l.dest_port,l.protocol,`"${(l.message||'').replace(/"/g,'""')}"`].join(',')).join('\n');
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([h+r],{type:'text/csv'}));
+    a.download=`siem-logs-${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  }
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  loadLogs();setInterval(loadLogs,5000);
+</script>
+</body>
+</html>

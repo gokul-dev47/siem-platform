@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>SIEM OPS — Dashboard</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+<div class="app-shell">
+
+  <header class="header">
+    <a href="index.html" class="header-brand">SIEM<span>//</span>OPS</a>
+    <div class="header-pill alert">
+      <div class="dot dot-red"></div>
+      <span class="lbl">Threats</span>
+      <span class="val" id="header-threat-count">—</span>
+    </div>
+    <div class="header-pill">
+      <span class="lbl">Last Alert</span>
+      <span class="val" id="last-alert-time">—</span>
+    </div>
+    <div class="header-pill ok">
+      <div class="dot dot-green" id="ws-dot"></div>
+      <span class="lbl">Status</span>
+      <span class="val" id="ws-status">Connecting</span>
+    </div>
+    <div class="header-sep"></div>
+  </header>
+
+  <nav class="sidebar">
+    <div class="nav-section">Navigation</div>
+    <a href="index.html"    class="nav-item active"><span class="nav-icon">▦</span>Dashboard</a>
+    <a href="logs.html"     class="nav-item"><span class="nav-icon">≡</span>Logs</a>
+    <a href="alerts.html"   class="nav-item">
+      <span class="nav-icon">◎</span>Alerts
+      <span class="nav-badge" id="alert-badge">0</span>
+    </a>
+    <a href="rules.html"    class="nav-item"><span class="nav-icon">⊛</span>Rules</a>
+    <a href="map.html"      class="nav-item"><span class="nav-icon">◈</span>Attack Map</a>
+    <a href="settings.html" class="nav-item"><span class="nav-icon">⚙</span>Settings</a>
+    <div class="sidebar-footer">
+      <strong>SIEM Platform v1.0</strong><br>
+      Real-time Threat Detection
+    </div>
+  </nav>
+
+  <main class="main-content">
+    <div class="page-hdr">
+      <div>
+        <div class="page-title">Security <span>Overview</span></div>
+        <div class="page-sub" id="last-updated-ts">Loading data...</div>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="loadStats()">↻ Refresh</button>
+        <button class="btn btn-primary" onclick="location.href='alerts.html'">View Alerts →</button>
+      </div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-widget cyan">
+        <div class="stat-lbl">Total Events (24h)</div>
+        <div class="stat-val" id="stat-total-events">—</div>
+        <div class="stat-sub">All ingested events</div>
+      </div>
+      <div class="stat-widget red">
+        <div class="stat-lbl">Critical Alerts</div>
+        <div class="stat-val" id="stat-critical-alerts">—</div>
+        <div class="stat-sub">Requires immediate action</div>
+      </div>
+      <div class="stat-widget orange">
+        <div class="stat-lbl">Blocked IPs</div>
+        <div class="stat-val" id="stat-blocked-ips">—</div>
+        <div class="stat-sub">Auto-blocked sources</div>
+      </div>
+      <div class="stat-widget green">
+        <div class="stat-lbl">Active Threats</div>
+        <div class="stat-val" id="stat-active-threats">—</div>
+        <div class="stat-sub">Under monitoring</div>
+      </div>
+    </div>
+
+    <div class="chart-grid">
+      <div class="chart-box">
+        <div class="card-title">Events Per Hour (24h)</div>
+        <div style="height:170px"><canvas id="chart-timeline"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="card-title">Severity Distribution</div>
+        <div style="height:170px"><canvas id="chart-severity"></canvas></div>
+      </div>
+      <div class="chart-box">
+        <div class="card-title">Attack Types</div>
+        <div style="height:170px"><canvas id="chart-attack-types"></canvas></div>
+      </div>
+    </div>
+
+    <div class="chart-box" style="margin-bottom:14px">
+      <div class="card-title">Top Attacker IPs by Volume</div>
+      <div style="height:140px"><canvas id="chart-top-ips"></canvas></div>
+    </div>
+
+    <div class="log-feed">
+      <div class="log-feed-hdr">
+        <div class="log-feed-title"><div class="dot dot-green"></div>Live Event Feed</div>
+        <div class="live-tag">● LIVE &nbsp;<span style="color:var(--text-3)">auto-refresh 5s</span></div>
+      </div>
+      <div class="log-cols">
+        <span>Timestamp</span><span>Severity</span><span>Source IP</span><span>Message</span>
+      </div>
+      <div class="log-entries" id="log-feed-entries">
+        <div style="padding:24px;text-align:center;color:var(--text-2)">
+          <div class="spinner" style="margin:0 auto 10px"></div>Loading events...
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="toast-container"></div>
+<script src="dashboard.js"></script>
+</body>
+</html>

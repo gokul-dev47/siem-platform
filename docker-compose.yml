@@ -1,0 +1,126 @@
+services:
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: siem-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m
+      - xpack.security.enabled=false
+      - xpack.ml.enabled=false
+      - bootstrap.memory_lock=false
+      - cluster.routing.allocation.disk.threshold_enabled=false
+    mem_limit: 700m
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+    restart: always
+
+  redis:
+    image: redis:7-alpine
+    container_name: siem-redis
+    command: redis-server --appendonly yes --maxmemory 128mb --maxmemory-policy allkeys-lru
+    mem_limit: 160m
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: always
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: siem-postgres
+    environment:
+      POSTGRES_DB: siem_alerts
+      POSTGRES_USER: siem_user
+      POSTGRES_PASSWORD: siem_password_2024
+    mem_limit: 256m
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U siem_user -d siem_alerts"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: always
+
+  siem-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: siem-backend
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - ELASTICSEARCH_HOST=http://host.docker.internal:9200
+      - REDIS_HOST=host.docker.internal
+      - REDIS_PASSWORD=
+      - POSTGRES_DSN=postgresql://siem_user:siem_password_2024@host.docker.internal:5432/siem_alerts
+      - SLACK_WEBHOOK_URL=${SLACK_WEBHOOK_URL:-}
+      - FLASK_ENV=production
+      - SECRET_KEY=siemplatform2024securekeygokul
+      - FRONTEND_DIR=/frontend
+    mem_limit: 300m
+    volumes:
+      - log-data:/var/log/siem
+      - ./backend:/app
+      - ./frontend:/frontend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - elasticsearch
+      - redis
+      - postgres
+    restart: always
+
+  log-generator:
+    build:
+      context: ./log-generator
+      dockerfile: Dockerfile
+    container_name: siem-log-generator
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - ELASTICSEARCH_HOST=http://host.docker.internal:9200
+      - REDIS_HOST=host.docker.internal
+      - REDIS_PASSWORD=
+      - GENERATE_INTERVAL=8
+    mem_limit: 100m
+    depends_on:
+      - elasticsearch
+      - redis
+    restart: always
+
+  nginx:
+    image: nginx:alpine
+    container_name: siem-nginx
+    mem_limit: 64m
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend:/usr/share/nginx/html:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - siem-backend
+    restart: always
+
+volumes:
+  es-data:
+  redis-data:
+  pg-data:
+  log-data:

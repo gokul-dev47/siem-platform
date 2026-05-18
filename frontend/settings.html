@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>SIEM OPS — Settings</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    @media(max-width:900px){.settings-grid{grid-template-columns:1fr}}
+    .test-btn{
+      padding:6px 14px;border-radius:var(--r);border:1px solid var(--border-hi);
+      background:var(--bg-hover);color:var(--cyan);font-family:var(--font-mono);
+      font-size:11px;cursor:pointer;transition:all 0.15s;
+    }
+    .test-btn:hover{background:var(--cyan-glow)}
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="header">
+    <a href="index.html" class="header-brand">SIEM<span>//</span>OPS</a>
+    <div class="header-pill"><span class="lbl">Page</span><span class="val" style="color:var(--yellow)">Settings</span></div>
+    <div class="header-sep"></div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section">Navigation</div>
+    <a href="index.html"    class="nav-item"><span class="nav-icon">▦</span>Dashboard</a>
+    <a href="logs.html"     class="nav-item"><span class="nav-icon">≡</span>Logs</a>
+    <a href="alerts.html"   class="nav-item"><span class="nav-icon">◎</span>Alerts</a>
+    <a href="rules.html"    class="nav-item"><span class="nav-icon">⊛</span>Rules</a>
+    <a href="map.html"      class="nav-item"><span class="nav-icon">◈</span>Attack Map</a>
+    <a href="settings.html" class="nav-item active"><span class="nav-icon">⚙</span>Settings</a>
+    <div class="sidebar-footer"><strong>SIEM Platform v1.0</strong><br>Real-time Threat Detection</div>
+  </nav>
+  <main class="main-content">
+    <div class="page-hdr">
+      <div>
+        <div class="page-title">Platform <span>Settings</span></div>
+        <div class="page-sub">Configure integrations, alerts, and system behavior</div>
+      </div>
+    </div>
+
+    <!-- Service Health -->
+    <div class="settings-block" style="margin-bottom:20px">
+      <div class="settings-hdr">⬡ Service Health</div>
+      <div style="padding:16px 20px">
+        <div class="health-grid" id="health-grid">
+          <div class="health-chip wait"><div class="svc">Elasticsearch</div><div class="st">Checking...</div></div>
+          <div class="health-chip wait"><div class="svc">Redis</div><div class="st">Checking...</div></div>
+          <div class="health-chip wait"><div class="svc">PostgreSQL</div><div class="st">Checking...</div></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="checkHealth()">↻ Refresh</button>
+      </div>
+    </div>
+
+    <div class="settings-grid">
+      <div>
+        <div class="settings-block">
+          <div class="settings-hdr">🔔 Slack Integration</div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-lbl">Webhook URL</div>
+              <div class="settings-hint">Receive critical alerts in Slack</div>
+            </div>
+            <input type="text" class="settings-input" id="slack-url"
+                   placeholder="https://hooks.slack.com/services/...">
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-lbl">Minimum Severity</div>
+              <div class="settings-hint">Only notify above this level</div>
+            </div>
+            <select class="settings-input" id="slack-sev" style="max-width:120px">
+              <option>critical</option>
+              <option selected>high</option>
+              <option>medium</option>
+            </select>
+          </div>
+          <div class="settings-row">
+            <div></div>
+            <div style="display:flex;gap:8px">
+              <button class="test-btn" onclick="testSlack()">Test</button>
+              <button class="btn btn-ghost btn-sm" onclick="saveSlack()">Save</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-block" style="margin-top:16px">
+          <div class="settings-hdr">📧 Email Alerts</div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-lbl">Alert Email</div>
+              <div class="settings-hint">Recipient for critical alerts</div>
+            </div>
+            <input type="email" class="settings-input" id="alert-email" placeholder="you@example.com">
+          </div>
+          <div class="settings-row">
+            <div></div>
+            <button class="test-btn" onclick="testEmail()">Send Test</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="settings-block">
+          <div class="settings-hdr">⚙ System</div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-lbl">Auto-block brute force IPs</div>
+              <div class="settings-hint">Block IP after critical alert fires</div>
+            </div>
+            <label class="toggle"><input type="checkbox" checked><span class="slider"></span></label>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-lbl">Log generator (demo mode)</div>
+              <div class="settings-hint">Simulates attack traffic every 5s</div>
+            </div>
+            <label class="toggle"><input type="checkbox" checked><span class="slider"></span></label>
+          </div>
+          <div class="settings-row">
+            <div>
+              <div class="settings-lbl">ES Index Retention (days)</div>
+              <div class="settings-hint">Auto-delete indices older than N days</div>
+            </div>
+            <input type="number" class="settings-input" value="30" style="max-width:80px">
+          </div>
+        </div>
+
+        <div class="settings-block" style="margin-top:16px">
+          <div class="settings-hdr">ℹ About</div>
+          <div style="padding:14px 20px;font-family:var(--font-mono);font-size:11.5px;line-height:1.9;color:var(--text-2)">
+            <div>SIEM Platform <strong style="color:var(--cyan)">v1.0.0</strong></div>
+            <div>Author: <strong style="color:var(--text-1)">Gokul</strong></div>
+            <div style="margin-top:6px;color:var(--text-3)">
+              Flask · Elasticsearch · Redis · PostgreSQL · Logstash · Nginx · Docker
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="toast-container"></div>
+<script src="dashboard.js"></script>
+<script>
+  async function checkHealth(){
+    const grid=document.getElementById('health-grid');
+    try{
+      const d=await fetch('/health').then(r=>r.json());
+      const svcs=d.services||{};
+      const names=['elasticsearch','redis','postgres'];
+      const labels={elasticsearch:'Elasticsearch',redis:'Redis',postgres:'PostgreSQL'};
+      grid.innerHTML=names.map(s=>{
+        const ok=svcs[s]?.status==='healthy';
+        const cls=ok?'ok':svcs[s]?.status==='starting'?'wait':'bad';
+        const label=ok?'● Healthy':svcs[s]?.status==='starting'?'◌ Starting':'✕ Unhealthy';
+        return `<div class="health-chip ${cls}"><div class="svc">${labels[s]}</div><div class="st">${label}</div></div>`;
+      }).join('');
+    }catch(e){
+      grid.innerHTML=`<div class="health-chip bad" style="grid-column:1/-1"><div class="svc">Backend</div><div class="st">✕ Unreachable</div></div>`;
+    }
+  }
+  function testSlack(){
+    const u=document.getElementById('slack-url').value;
+    if(!u.startsWith('https://hooks.slack.com')){showToast('high','Invalid URL','Must be a Slack webhook URL');return}
+    showToast('success','Test sent','Check your Slack channel');
+  }
+  function testEmail(){
+    const e=document.getElementById('alert-email').value;
+    if(!e.includes('@')){showToast('high','Invalid','Enter a valid email');return}
+    showToast('success','Test email sent',`Check ${e}`);
+  }
+  function saveSlack(){
+    localStorage.setItem('siem_slack',document.getElementById('slack-url').value);
+    showToast('success','Saved','Set SLACK_WEBHOOK_URL in .env to persist');
+  }
+  checkHealth();setInterval(checkHealth,30000);
+</script>
+</body>
+</html>

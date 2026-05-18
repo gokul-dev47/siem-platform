@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>SIEM OPS — Attack Map</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .map-wrapper{position:relative;border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden}
+    .map-overlay{position:absolute;top:14px;left:14px;display:flex;flex-direction:column;gap:8px}
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="header">
+    <a href="index.html" class="header-brand">SIEM<span>//</span>OPS</a>
+    <div class="header-pill alert">
+      <div class="dot dot-red"></div>
+      <span class="lbl">Live Attacks</span>
+      <span class="val" id="atk-count">0</span>
+    </div>
+    <div class="header-sep"></div>
+    <div style="font-size:10px;font-family:var(--font-mono);color:var(--text-3)">Simulated geo data</div>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section">Navigation</div>
+    <a href="index.html"    class="nav-item"><span class="nav-icon">▦</span>Dashboard</a>
+    <a href="logs.html"     class="nav-item"><span class="nav-icon">≡</span>Logs</a>
+    <a href="alerts.html"   class="nav-item"><span class="nav-icon">◎</span>Alerts</a>
+    <a href="rules.html"    class="nav-item"><span class="nav-icon">⊛</span>Rules</a>
+    <a href="map.html"      class="nav-item active"><span class="nav-icon">◈</span>Attack Map</a>
+    <a href="settings.html" class="nav-item"><span class="nav-icon">⚙</span>Settings</a>
+    <div class="sidebar-footer"><strong>SIEM Platform v1.0</strong><br>Real-time Threat Detection</div>
+  </nav>
+  <main class="main-content" style="padding:20px">
+    <div class="page-hdr">
+      <div>
+        <div class="page-title">Global <span>Attack Map</span></div>
+        <div class="page-sub">Live attack origins mapped to target — Chennai, India</div>
+      </div>
+    </div>
+    <div class="map-wrapper">
+      <canvas id="attack-map-canvas" height="500"></canvas>
+      <div class="map-overlay">
+        <div class="map-stat">Attacks: <strong id="stat-total-atk">—</strong></div>
+        <div class="map-stat">Top origin: <strong id="stat-top">—</strong></div>
+        <div class="map-stat">Target: <strong style="color:var(--green)">Chennai, IN 🇮🇳</strong></div>
+      </div>
+      <div class="attack-log">
+        <div class="attack-log-hdr"><div class="dot dot-green"></div>Live Feed</div>
+        <div class="attack-log-entries" id="atk-feed"></div>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="toast-container"></div>
+<script src="dashboard.js"></script>
+<script>
+  const canvas=document.getElementById('attack-map-canvas');
+  const ctx=canvas.getContext('2d');
+  let W,H,sources=[],target={lat:13.08,lng:80.27,city:'Chennai',country:'IN'};
+  let arcs=[],atkCount=0;
+
+  const LAND=[
+    [25,70,-165,-55,0.08],[−55,10,−80,−35,0.06],[36,70,−10,40,0.12],
+    [−35,37,−18,50,0.07],[10,70,40,145,0.07],[−38,−10,115,153,0.07],
+    [51,58,−8,2,0.3],[31,44,130,145,0.3],[8,35,68,97,0.2],
+  ].reduce((pts,[minLa,maxLa,minLn,maxLn,d])=>{
+    for(let i=0;i<400;i++){
+      if(Math.random()>d)continue;
+      pts.push({lat:minLa+Math.random()*(maxLa-minLa),lng:minLn+Math.random()*(maxLn-minLn)});
+    }
+    return pts;
+  },[]);
+
+  function resize(){W=canvas.offsetWidth;H=canvas.height=canvas.offsetWidth*0.54}
+  function ll(lat,lng){return{x:((lng+180)/360)*W,y:((90-lat)/180)*H}}
+
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    const g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,'#04060b');g.addColorStop(1,'#060810');
+    ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='rgba(20,30,55,0.4)';ctx.lineWidth=0.5;
+    for(let lng=-180;lng<=180;lng+=30){const{x}=ll(0,lng);ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke()}
+    for(let lat=-90;lat<=90;lat+=30){const{y}=ll(lat,0);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke()}
+    ctx.fillStyle='rgba(30,50,80,0.6)';
+    LAND.forEach(p=>{const{x,y}=ll(p.lat,p.lng);ctx.beginPath();ctx.arc(x,y,W>800?1.2:0.8,0,Math.PI*2);ctx.fill()});
+    const now=Date.now();
+    arcs=arcs.filter(a=>now-a.t<a.dur);
+    arcs.forEach(a=>{
+      const t=(now-a.t)/a.dur;
+      const sx=a.sx,sy=a.sy,tx=a.tx,ty=a.ty;
+      const cx=(sx+tx)/2,cy=Math.min(sy,ty)-Math.abs(tx-sx)*0.3;
+      ctx.beginPath();ctx.strokeStyle=a.col;ctx.lineWidth=1;ctx.globalAlpha=Math.sin(t*Math.PI)*0.7;
+      const steps=40;
+      for(let i=0;i<=Math.floor(t*steps);i++){
+        const s=i/steps;
+        const x=(1-s)*(1-s)*sx+2*(1-s)*s*cx+s*s*tx;
+        const y=(1-s)*(1-s)*sy+2*(1-s)*s*cy+s*s*ty;
+        if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+      }
+      ctx.stroke();ctx.globalAlpha=1;
+      const ht=Math.min(t+0.05,1);
+      const hx=(1-ht)*(1-ht)*sx+2*(1-ht)*ht*cx+ht*ht*tx;
+      const hy=(1-ht)*(1-ht)*sy+2*(1-ht)*ht*cy+ht*ht*ty;
+      ctx.beginPath();ctx.arc(hx,hy,2,0,Math.PI*2);ctx.fillStyle=a.col;ctx.fill();
+    });
+    sources.forEach((s,i)=>{
+      const{x,y}=ll(s.lat,s.lng);
+      ctx.beginPath();ctx.arc(x,y,5+Math.sin(Date.now()/500+i)*2,0,Math.PI*2);
+      ctx.strokeStyle='rgba(255,56,96,0.2)';ctx.lineWidth=1;ctx.stroke();
+      ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fillStyle='#ff3860';ctx.fill();
+      if(W>700){ctx.font=`${Math.max(9,W*0.011)}px JetBrains Mono`;ctx.fillStyle='rgba(200,200,220,0.5)';ctx.fillText(s.city,x+5,y-4)}
+    });
+    const{x,y}=ll(target.lat,target.lng);
+    const p=Math.sin(Date.now()/400)*4;
+    ctx.beginPath();ctx.arc(x,y,9+p,0,Math.PI*2);ctx.strokeStyle='rgba(0,230,118,0.15)';ctx.lineWidth=1.5;ctx.stroke();
+    ctx.beginPath();ctx.arc(x,y,4,0,Math.PI*2);ctx.fillStyle='#00e676';
+    ctx.shadowBlur=10;ctx.shadowColor='#00e676';ctx.fill();ctx.shadowBlur=0;
+    if(W>700){ctx.font=`bold ${Math.max(10,W*0.012)}px JetBrains Mono`;ctx.fillStyle='#00e676';ctx.fillText('◎ CHENNAI',x+7,y+4)}
+    requestAnimationFrame(draw);
+  }
+
+  function spawn(src){
+    const{x:sx,y:sy}=ll(src.lat,src.lng);
+    const{x:tx,y:ty}=ll(target.lat,target.lng);
+    const cols=['rgba(255,56,96,0.8)','rgba(255,140,0,0.8)','rgba(255,215,0,0.6)'];
+    arcs.push({sx,sy,tx,ty,col:cols[Math.floor(Math.random()*cols.length)],t:Date.now(),dur:2000+Math.random()*1500});
+    atkCount++;
+    document.getElementById('atk-count').textContent=atkCount;
+    const feed=document.getElementById('atk-feed');
+    const el=document.createElement('div');el.className='attack-log-entry';
+    el.innerHTML=`<span class="atk-from">${src.city} [${src.country}]</span> → <span class="atk-to">Chennai</span>`;
+    feed.insertBefore(el,feed.firstChild);
+    while(feed.children.length>8)feed.removeChild(feed.lastChild);
+  }
+
+  async function init(){
+    resize();window.addEventListener('resize',resize);
+    try{
+      const d=await fetch('/api/threat-map').then(r=>r.json());
+      sources=d.sources||[];target=d.target||target;
+      if(sources.length){
+        sources.sort((a,b)=>b.count-a.count);
+        document.getElementById('stat-top').textContent=`${sources[0].city} (${sources[0].count})`;
+        document.getElementById('stat-total-atk').textContent=sources.reduce((s,x)=>s+x.count,0);
+      }
+    }catch(e){
+      sources=[
+        {lat:39.9,lng:116.4,city:'Beijing',country:'CN',count:200},
+        {lat:55.7,lng:37.6,city:'Moscow',country:'RU',count:150},
+        {lat:6.4,lng:3.4,city:'Lagos',country:'NG',count:80},
+      ];
+    }
+    draw();
+    setInterval(()=>{
+      if(!sources.length)return;
+      spawn(sources[Math.floor(Math.random()*sources.length)]);
+    },800);
+  }
+  document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>

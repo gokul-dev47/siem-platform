@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>SIEM OPS — Rules</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app-shell">
+  <header class="header">
+    <a href="index.html" class="header-brand">SIEM<span>//</span>OPS</a>
+    <div class="header-pill"><span class="lbl">Page</span><span class="val" style="color:var(--purple)">Rules</span></div>
+    <div class="header-sep"></div>
+    <button class="btn btn-primary btn-sm" onclick="saveAll()">Save Changes</button>
+  </header>
+  <nav class="sidebar">
+    <div class="nav-section">Navigation</div>
+    <a href="index.html"    class="nav-item"><span class="nav-icon">▦</span>Dashboard</a>
+    <a href="logs.html"     class="nav-item"><span class="nav-icon">≡</span>Logs</a>
+    <a href="alerts.html"   class="nav-item"><span class="nav-icon">◎</span>Alerts</a>
+    <a href="rules.html"    class="nav-item active"><span class="nav-icon">⊛</span>Rules</a>
+    <a href="map.html"      class="nav-item"><span class="nav-icon">◈</span>Attack Map</a>
+    <a href="settings.html" class="nav-item"><span class="nav-icon">⚙</span>Settings</a>
+    <div class="sidebar-footer"><strong>SIEM Platform v1.0</strong><br>Real-time Threat Detection</div>
+  </nav>
+  <main class="main-content">
+    <div class="page-hdr">
+      <div>
+        <div class="page-title">Detection <span>Rules</span></div>
+        <div class="page-sub">Toggle rules on/off. Adjust thresholds. Evaluated every 60 seconds.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:18px">
+      <div style="font-family:var(--font-mono);font-size:11.5px;color:var(--text-2);line-height:1.9">
+        Rules check Redis event counters against thresholds. When a counter exceeds the threshold
+        within the time window, an alert is created and broadcast in real-time.
+        <span id="rule-summary" style="color:var(--cyan);margin-left:12px"></span>
+      </div>
+    </div>
+
+    <div class="rule-list">
+      <div class="rule-hdr">
+        <span>Rule / Description</span>
+        <span>Severity</span>
+        <span>Window</span>
+        <span>Threshold</span>
+        <span>Enabled</span>
+      </div>
+      <div id="rules-list">
+        <div style="padding:30px;text-align:center;color:var(--text-2)">
+          <div class="spinner" style="margin:0 auto 10px"></div>Loading rules...
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div id="toast-container"></div>
+<script src="dashboard.js"></script>
+<script>
+  let rules=[];const dirty=new Set();
+  async function loadRules(){
+    try{
+      const d=await fetch('/api/rules').then(r=>r.json());
+      rules=d.rules||[];
+      const en=rules.filter(r=>r.enabled).length;
+      document.getElementById('rule-summary').textContent=`${rules.length} total · ${en} enabled`;
+      document.getElementById('rules-list').innerHTML=rules.map(rule=>{
+        const sev=rule.severity||'medium';
+        return `<div class="rule-row${rule.enabled?'':' off'}" id="rr-${rule.id}">
+          <div>
+            <div class="rule-name">${esc(rule.name||rule.id)}</div>
+            <div class="rule-desc">${esc(rule.description||'')}</div>
+          </div>
+          <div><span class="sev-chip sev-${sev}">${sev}</span></div>
+          <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-2)">${rule.window_seconds}s</div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input class="thresh-input" type="number" min="1" max="9999"
+                   value="${rule.threshold}" id="th-${rule.id}"
+                   onchange="dirty.add('${rule.id}')">
+            <span style="font-size:10px;color:var(--text-3)">events</span>
+          </div>
+          <div>
+            <label class="toggle">
+              <input type="checkbox" ${rule.enabled?'checked':''}
+                     onchange="toggleRule('${rule.id}',this.checked)">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>`;
+      }).join('');
+    }catch(e){console.warn(e)}
+  }
+  async function toggleRule(id,enabled){
+    try{
+      await fetch(`/api/rules/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled})});
+      const row=document.getElementById('rr-'+id);
+      if(row)row.classList.toggle('off',!enabled);
+      showToast(enabled?'success':'high',enabled?'Rule Enabled':'Rule Disabled',id);
+      const rule=rules.find(r=>r.id===id);if(rule)rule.enabled=enabled;
+    }catch(e){showToast('high','Error','Failed to update rule')}
+  }
+  async function saveAll(){
+    let saved=0;
+    for(const id of dirty){
+      const inp=document.getElementById('th-'+id);
+      if(!inp)continue;
+      const t=parseInt(inp.value);
+      if(isNaN(t)||t<1)continue;
+      try{
+        await fetch(`/api/rules/${id}`,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({threshold:t})});
+        saved++;
+      }catch(e){}
+    }
+    dirty.clear();
+    showToast('success',`${saved} rule${saved!==1?'s':''} saved`,'Thresholds updated');
+    await loadRules();
+  }
+  function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  loadRules();
+</script>
+</body>
+</html>

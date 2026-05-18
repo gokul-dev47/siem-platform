@@ -1,0 +1,64 @@
+# Environment & secrets
+.env
+.env.local
+.env.production
+*.env
+
+# Docker volumes / data
+elasticsearch-data/
+redis-data/
+pg-data/
+es-data/
+nginx-certs/
+log-data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+logs/
+/var/log/
+
+# SSL certs (generate locally)
+nginx/ssl/*.pem
+nginx/ssl/*.key
+nginx/ssl/*.crt
+nginx/ssl/*.csr
+
+# IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+Thumbs.db
+
+# Node (if frontend build step added later)
+node_modules/
+npm-debug.log*
+
+# Test artifacts
+*.coverage
+test-results/
+
+# Misc
+.git/
+*.bak
+*.tmp
