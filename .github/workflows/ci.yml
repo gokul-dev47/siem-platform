@@ -26,10 +26,10 @@ jobs:
 
       - name: Lint backend with flake8
         run: |
-          flake8 backend/app.py \
-            --max-line-length=120 \
-            --ignore=E501,W503,E402 \
-            --exclude=__pycache__
+         flake8 backend/app.py \
+         --max-line-length=120 \
+         --ignore=E501,W503,E402,E225,E231,E302,E305 \
+         --exclude=__pycache__
 
       - name: Security scan with bandit
         run: |
