@@ -37,7 +37,7 @@ docker compose version
 
 ```bash
 # 1. Clone
-git clone https://github.com/YOUR_USERNAME/siem-platform.git
+git clone https://github.com/gokul-dev47/siem-platform.git
 cd siem-platform
 
 # 2. Configure environment
